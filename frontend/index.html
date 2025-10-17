@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传测试页面</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            margin-bottom: 40px;
+            padding: 30px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            background-color: #f8f9ff;
+        }
+
+        .upload-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            font-size: 16px;
+            border: none;
+        }
+
+        .file-input-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .upload-button {
+            padding: 12px 30px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .upload-button:hover {
+            background: #218838;
+        }
+
+        .upload-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .file-list {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            min-height: 50px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .remove-file {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .remove-file:hover {
+            background: #c82333;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .uploaded-files {
+            margin-top: 15px;
+        }
+
+        .uploaded-file {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 12px;
+            background: #e9ecef;
+            border-radius: 5px;
+            text-decoration: none;
+            color: #495057;
+            transition: background 0.3s ease;
+        }
+
+        .uploaded-file:hover {
+            background: #dee2e6;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 文件上传测试</h1>
+            <p>支持单文件和多文件上传，拖拽上传，实时进度显示</p>
+        </div>
+
+        <div class="content">
+            <!-- 单文件上传 -->
+            <div class="upload-section">
+                <h2>📁 单文件上传</h2>
+                <div class="file-input-wrapper">
+                    <input type="file" id="singleFile" class="file-input" accept="*/*">
+                    <button class="file-input-button">选择文件</button>
+                </div>
+                <button id="uploadSingle" class="upload-button" disabled>上传文件</button>
+                
+                <div class="file-list" id="singleFileList"></div>
+                <div class="progress-bar" id="singleProgressBar" style="display: none;">
+                    <div class="progress-fill" id="singleProgressFill"></div>
+                </div>
+                <div class="loading" id="singleLoading">
+                    <div class="spinner"></div>正在上传...
+                </div>
+                <div class="result" id="singleResult"></div>
+            </div>
+
+            <!-- 多文件上传 -->
+            <div class="upload-section">
+                <h2>📂 多文件上传</h2>
+                <div class="file-input-wrapper">
+                    <input type="file" id="multipleFiles" class="file-input" multiple accept="*/*">
+                    <button class="file-input-button">选择多个文件</button>
+                </div>
+                <button id="uploadMultiple" class="upload-button" disabled>上传所有文件</button>
+                
+                <div class="file-list" id="multipleFileList"></div>
+                <div class="progress-bar" id="multipleProgressBar" style="display: none;">
+                    <div class="progress-fill" id="multipleProgressFill"></div>
+                </div>
+                <div class="loading" id="multipleLoading">
+                    <div class="spinner"></div>正在上传...
+                </div>
+                <div class="result" id="multipleResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        const API_BASE_URL = 'http://localhost:3000';
+        let selectedSingleFile = null;
+        let selectedMultipleFiles = [];
+
+        // DOM 元素
+        const singleFileInput = document.getElementById('singleFile');
+        const multipleFilesInput = document.getElementById('multipleFiles');
+        const uploadSingleBtn = document.getElementById('uploadSingle');
+        const uploadMultipleBtn = document.getElementById('uploadMultiple');
+        const singleFileList = document.getElementById('singleFileList');
+        const multipleFileList = document.getElementById('multipleFileList');
+        const singleProgressBar = document.getElementById('singleProgressBar');
+        const multipleProgressBar = document.getElementById('multipleProgressBar');
+        const singleProgressFill = document.getElementById('singleProgressFill');
+        const multipleProgressFill = document.getElementById('multipleProgressFill');
+        const singleLoading = document.getElementById('singleLoading');
+        const multipleLoading = document.getElementById('multipleLoading');
+        const singleResult = document.getElementById('singleResult');
+        const multipleResult = document.getElementById('multipleResult');
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 显示文件信息
+        function displayFileInfo(file, container) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div class="file-info">
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-size">${formatFileSize(file.size)}</div>
+                </div>
+                <button class="remove-file" onclick="removeFile(this)">移除</button>
+            `;
+            container.appendChild(fileItem);
+        }
+
+        // 移除文件
+        function removeFile(button) {
+            const fileItem = button.parentElement;
+            fileItem.remove();
+            
+            // 更新按钮状态
+            updateButtonStates();
+        }
+
+        // 更新按钮状态
+        function updateButtonStates() {
+            uploadSingleBtn.disabled = !selectedSingleFile;
+            uploadMultipleBtn.disabled = selectedMultipleFiles.length === 0;
+        }
+
+        // 显示结果
+        function showResult(container, isSuccess, message, files = []) {
+            container.className = `result ${isSuccess ? 'success' : 'error'} show`;
+            container.innerHTML = `
+                <div>${message}</div>
+                ${files.length > 0 ? `
+                    <div class="uploaded-files">
+                        <strong>上传的文件：</strong><br>
+                        ${files.map(file => `
+                            <a href="${file.url}" target="_blank" class="uploaded-file">
+                                ${file.originalname || file.filename}
+                            </a>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        // 显示进度
+        function showProgress(progressBar, progressFill, loading, percent) {
+            progressBar.style.display = 'block';
+            loading.classList.add('show');
+            progressFill.style.width = percent + '%';
+        }
+
+        // 隐藏进度
+        function hideProgress(progressBar, loading) {
+            progressBar.style.display = 'none';
+            loading.classList.remove('show');
+        }
+
+        // 单文件上传
+        async function uploadSingleFile() {
+            if (!selectedSingleFile) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedSingleFile);
+
+            try {
+                showProgress(singleProgressBar, singleProgressFill, singleLoading, 0);
+                
+                const response = await fetch(`${API_BASE_URL}/upload/single`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                showProgress(singleProgressBar, singleProgressFill, singleLoading, 100);
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult(singleResult, true, result.message, [result]);
+                    singleFileList.innerHTML = '';
+                    selectedSingleFile = null;
+                    singleFileInput.value = '';
+                } else {
+                    showResult(singleResult, false, result.message || '上传失败');
+                }
+            } catch (error) {
+                showResult(singleResult, false, '网络错误：' + error.message);
+            } finally {
+                hideProgress(singleProgressBar, singleLoading);
+                updateButtonStates();
+            }
+        }
+
+        // 多文件上传
+        async function uploadMultipleFiles() {
+            if (selectedMultipleFiles.length === 0) return;
+
+            const formData = new FormData();
+            selectedMultipleFiles.forEach(file => {
+                formData.append('files', file);
+            });
+
+            try {
+                showProgress(multipleProgressBar, multipleProgressFill, multipleLoading, 0);
+                
+                const response = await fetch(`${API_BASE_URL}/upload/multiple`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                showProgress(multipleProgressBar, multipleProgressFill, multipleLoading, 100);
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult(multipleResult, true, result.message, result.files);
+                    multipleFileList.innerHTML = '';
+                    selectedMultipleFiles = [];
+                    multipleFilesInput.value = '';
+                } else {
+                    showResult(multipleResult, false, result.message || '上传失败');
+                }
+            } catch (error) {
+                showResult(multipleResult, false, '网络错误：' + error.message);
+            } finally {
+                hideProgress(multipleProgressBar, multipleLoading);
+                updateButtonStates();
+            }
+        }
+
+        // 事件监听器
+        singleFileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                selectedSingleFile = file;
+                singleFileList.innerHTML = '';
+                displayFileInfo(file, singleFileList);
+                updateButtonStates();
+            }
+        });
+
+        multipleFilesInput.addEventListener('change', function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                selectedMultipleFiles = files;
+                multipleFileList.innerHTML = '';
+                files.forEach(file => {
+                    displayFileInfo(file, multipleFileList);
+                });
+                updateButtonStates();
+            }
+        });
+
+        uploadSingleBtn.addEventListener('click', uploadSingleFile);
+        uploadMultipleBtn.addEventListener('click', uploadMultipleFiles);
+
+        // 拖拽上传功能
+        function setupDragAndDrop(section, fileInput, isMultiple) {
+            section.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                section.style.borderColor = '#667eea';
+                section.style.backgroundColor = '#f0f4ff';
+            });
+
+            section.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                section.style.borderColor = '#e0e0e0';
+                section.style.backgroundColor = '';
+            });
+
+            section.addEventListener('drop', function(e) {
+                e.preventDefault();
+                section.style.borderColor = '#e0e0e0';
+                section.style.backgroundColor = '';
+
+                const files = Array.from(e.dataTransfer.files);
+                if (isMultiple) {
+                    selectedMultipleFiles = files;
+                    multipleFileList.innerHTML = '';
+                    files.forEach(file => {
+                        displayFileInfo(file, multipleFileList);
+                    });
+                } else {
+                    const file = files[0];
+                    if (file) {
+                        selectedSingleFile = file;
+                        singleFileList.innerHTML = '';
+                        displayFileInfo(file, singleFileList);
+                    }
+                }
+                updateButtonStates();
+            });
+        }
+
+        // 设置拖拽上传
+        const uploadSections = document.querySelectorAll('.upload-section');
+        setupDragAndDrop(uploadSections[0], singleFileInput, false);
+        setupDragAndDrop(uploadSections[1], multipleFilesInput, true);
+
+        // 初始化
+        updateButtonStates();
+    </script>
+</body>
+</html>
