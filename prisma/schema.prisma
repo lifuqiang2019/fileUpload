@@ -1,0 +1,26 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// 文件上传记录模型
+model FileUpload {
+  id          Int      @id @default(autoincrement())
+  filename    String   // 存储的文件名
+  originalname String  // 原始文件名
+  mimetype    String?  // 文件类型
+  size        Int      // 文件大小（字节）
+  path        String   // 文件路径
+  url         String   // 访问URL
+  createdAt   DateTime @default(now()) // 创建时间
+  updatedAt   DateTime @updatedAt      // 更新时间
+
+  @@map("file_uploads")
+}
