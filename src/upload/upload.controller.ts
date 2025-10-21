@@ -5,6 +5,7 @@ import {
   Delete,
   Param,
   Query,
+  Body,
   UseInterceptors,
   UploadedFile,
   UploadedFiles,
@@ -121,5 +122,80 @@ export class UploadController {
     }
 
     return this.uploadService.deleteFile(fileId);
+  }
+
+  // ==================== 切片上传相关接口 ====================
+
+  // 检查文件是否已存在（秒传）
+  @Get('check')
+  async checkFileExists(@Query('hash') hash: string) {
+    if (!hash) {
+      throw new BadRequestException('hash参数不能为空');
+    }
+    return this.uploadService.checkFileExists(hash);
+  }
+
+  // 检查已上传的切片
+  @Get('chunks/check')
+  async checkUploadedChunks(@Query('hash') hash: string) {
+    if (!hash) {
+      throw new BadRequestException('hash参数不能为空');
+    }
+    return this.uploadService.checkUploadedChunks(hash);
+  }
+
+  // 上传单个切片
+  @Post('chunk')
+  @UseInterceptors(
+    FileInterceptor('chunk', {
+      storage: diskStorage({
+        destination: join(__dirname, '..', '..', 'uploads', 'chunks', 'temp'),
+        filename: (req, file, callback) => {
+          // 使用临时文件名
+          const tempName = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          callback(null, tempName);
+        },
+      }),
+    }),
+  )
+  async uploadChunk(
+    @UploadedFile() chunk: Express.Multer.File,
+    @Body('hash') hash: string,
+    @Body('index') index: string,
+    @Body('chunkHash') chunkHash: string,
+  ) {
+    if (!chunk) {
+      throw new BadRequestException('请上传切片文件');
+    }
+    if (!hash || !index || !chunkHash) {
+      throw new BadRequestException('缺少必要参数');
+    }
+
+    return this.uploadService.uploadChunk({
+      chunk,
+      hash,
+      index: parseInt(index, 10),
+      chunkHash,
+    });
+  }
+
+  // 合并切片
+  @Post('merge')
+  async mergeChunks(
+    @Body('hash') hash: string,
+    @Body('filename') filename: string,
+    @Body('size') size: number,
+    @Body('mimetype') mimetype: string,
+  ) {
+    if (!hash || !filename || !size) {
+      throw new BadRequestException('缺少必要参数');
+    }
+
+    return this.uploadService.mergeChunks({
+      hash,
+      filename,
+      size,
+      mimetype: mimetype || 'application/octet-stream',
+    });
   }
 }

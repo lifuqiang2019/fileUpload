@@ -19,6 +19,7 @@ model FileUpload {
   size        Int      // 文件大小（字节）
   path        String   // 文件路径
   url         String   // 访问URL
+  hash        String?  @unique // 文件hash（MD5），用于秒传
   createdAt   DateTime @default(now()) // 创建时间
   updatedAt   DateTime @updatedAt      // 更新时间
 

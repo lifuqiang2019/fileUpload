@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { join } from 'path';
 import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -12,6 +13,12 @@ export class UploadService {
     // 确保上传目录存在
     if (!fs.existsSync(this.uploadPath)) {
       fs.mkdirSync(this.uploadPath, { recursive: true });
+    }
+    
+    // 确保切片临时目录存在
+    const tempChunkPath = join(this.uploadPath, 'chunks', 'temp');
+    if (!fs.existsSync(tempChunkPath)) {
+      fs.mkdirSync(tempChunkPath, { recursive: true });
     }
   }
 
@@ -140,6 +147,178 @@ export class UploadService {
       };
     } catch (error) {
       throw new Error('文件删除失败: ' + error.message);
+    }
+  }
+
+  // ==================== 切片上传相关方法 ====================
+
+  // 切片存储目录
+  private readonly chunksPath = join(__dirname, '..', '..', 'uploads', 'chunks');
+
+  // 检查文件是否已存在（秒传）
+  async checkFileExists(hash: string) {
+    const file = await this.prisma.fileUpload.findUnique({
+      where: { hash },
+    });
+
+    if (file) {
+      return {
+        exists: true,
+        file: {
+          id: file.id,
+          filename: file.filename,
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+          path: file.path,
+          url: file.url,
+          createdAt: file.createdAt,
+        },
+      };
+    }
+
+    return { exists: false };
+  }
+
+  // 检查已上传的切片
+  async checkUploadedChunks(hash: string) {
+    const chunkDir = join(this.chunksPath, hash);
+
+    // 如果目录不存在，说明没有上传任何切片
+    if (!fs.existsSync(chunkDir)) {
+      return { uploadedChunks: [] };
+    }
+
+    try {
+      // 读取目录中的所有切片文件
+      const files = await fsPromises.readdir(chunkDir);
+      
+      // 提取切片索引
+      const uploadedChunks = files
+        .map((filename) => {
+          // 文件名格式: hash-index
+          const match = filename.match(/-(\d+)$/);
+          return match ? parseInt(match[1], 10) : null;
+        })
+        .filter((index) => index !== null);
+
+      return { uploadedChunks };
+    } catch (error) {
+      console.error('检查切片失败:', error);
+      return { uploadedChunks: [] };
+    }
+  }
+
+  // 上传单个切片
+  async uploadChunk(data: {
+    chunk: Express.Multer.File;
+    hash: string;
+    index: number;
+    chunkHash: string;
+  }) {
+    const { chunk, hash, index, chunkHash } = data;
+
+    try {
+      // 确保切片目录存在
+      const chunkDir = join(this.chunksPath, hash);
+      if (!fs.existsSync(chunkDir)) {
+        fs.mkdirSync(chunkDir, { recursive: true });
+      }
+
+      // 移动临时文件到目标目录
+      const targetPath = join(chunkDir, chunkHash);
+      await fsPromises.rename(chunk.path, targetPath);
+
+      return {
+        message: '切片上传成功',
+        hash,
+        index,
+        chunkHash,
+        size: chunk.size,
+      };
+    } catch (error) {
+      console.error('保存切片失败:', error);
+      throw new Error('切片保存失败: ' + error.message);
+    }
+  }
+
+  // 合并切片
+  async mergeChunks(data: {
+    hash: string;
+    filename: string;
+    size: number;
+    mimetype: string;
+  }) {
+    const { hash, filename, size, mimetype } = data;
+
+    try {
+      const chunkDir = join(this.chunksPath, hash);
+
+      // 检查切片目录是否存在
+      if (!fs.existsSync(chunkDir)) {
+        throw new Error('切片目录不存在');
+      }
+
+      // 读取所有切片文件并排序
+      const chunkFiles = await fsPromises.readdir(chunkDir);
+      chunkFiles.sort((a, b) => {
+        const indexA = parseInt(a.match(/-(\d+)$/)?.[1] || '0', 10);
+        const indexB = parseInt(b.match(/-(\d+)$/)?.[1] || '0', 10);
+        return indexA - indexB;
+      });
+
+      // 生成最终文件名
+      const ext = filename.substring(filename.lastIndexOf('.'));
+      const finalFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+      const finalPath = join(this.uploadPath, finalFilename);
+
+      // 创建写入流
+      const writeStream = fs.createWriteStream(finalPath);
+
+      // 按顺序读取切片并写入最终文件
+      for (const chunkFile of chunkFiles) {
+        const chunkPath = join(chunkDir, chunkFile);
+        const chunkBuffer = await fsPromises.readFile(chunkPath);
+        writeStream.write(chunkBuffer);
+      }
+
+      // 结束写入
+      await new Promise<void>((resolve, reject) => {
+        writeStream.end((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      // 删除切片目录
+      await fsPromises.rm(chunkDir, { recursive: true, force: true });
+
+      // 保存文件信息到数据库
+      const fileRecord = await this.prisma.fileUpload.create({
+        data: {
+          filename: finalFilename,
+          originalname: filename,
+          mimetype: mimetype,
+          size: size,
+          path: finalPath,
+          url: `/uploads/${finalFilename}`,
+          hash: hash, // 保存文件hash，用于秒传
+        },
+      });
+
+      return {
+        message: '文件合并成功',
+        id: fileRecord.id,
+        filename: finalFilename,
+        originalname: filename,
+        size: size,
+        url: `/uploads/${finalFilename}`,
+        hash: hash,
+        createdAt: fileRecord.createdAt,
+      };
+    } catch (error) {
+      console.error('合并切片失败:', error);
+      throw new Error('文件合并失败: ' + error.message);
     }
   }
 }
